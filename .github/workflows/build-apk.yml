@@ -39,14 +39,27 @@ jobs:
 
     - name: Patch Android Gradle for Java 17 compatibility
       run: |
-        cd android/app
-        # Replace Java 21 with Java 17 if present
-        sed -i 's/sourceCompatibility JavaVersion.VERSION_21/sourceCompatibility JavaVersion.VERSION_17/g' build.gradle || true
-        sed -i 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' build.gradle || true
-        # Also handle numeric version: sourceCompatibility 21 -> 17
-        sed -i 's/sourceCompatibility [0-9]*/sourceCompatibility 17/g' build.gradle || true
-        sed -i 's/targetCompatibility [0-9]*/targetCompatibility 17/g' build.gradle || true
-        cd ../..
+        # Patch ALL build.gradle files in the android folder
+        echo "Patching Java version to 17 in all build.gradle files..."
+        find android -name "build.gradle" -type f | while read file; do
+          echo "Patching $file"
+          # Replace JavaVersion.VERSION_21 or numeric 21 with 17
+          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
+          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' "$file" || true
+          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
+          sed -i 's/compileOptions { sourceCompatibility JavaVersion.VERSION_21 targetCompatibility JavaVersion.VERSION_21 }/compileOptions { sourceCompatibility JavaVersion.VERSION_17 targetCompatibility JavaVersion.VERSION_17 }/g' "$file" || true
+        done
+
+        # Create/update gradle.properties to force Java 17
+        cat > gradle.properties << 'EOF'
+org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
+android.useAndroidX=true
+android.enableJetifier=true
+EOF
+
+        # Show what was changed (for debugging)
+        echo "=== Patched files diff ==="
+        git diff --no-color android/ gradle.properties || true
 
     - name: Build Debug APK
       run: |
