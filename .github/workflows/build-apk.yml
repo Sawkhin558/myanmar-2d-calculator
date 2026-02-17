@@ -28,6 +28,23 @@ jobs:
     - name: Install Capacitor Dependencies
       run: npm install
 
+    - name: Patch Node Modules Capacitor for Java 17 (before cap sync)
+      run: |
+        # Patch capacitor-android build.gradle in node_modules
+        if [ -d "node_modules/@capacitor/android/capacitor" ]; then
+          echo "Patching node_modules/@capacitor/android/capacitor/build.gradle"
+          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
+          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
+          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
+        fi
+        # Also patch any other @capacitor packages if they have build.gradle
+        find node_modules/@capacitor -name "build.gradle" -type f | while read file; do
+          echo "Patching $file"
+          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
+          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' "$file" || true
+          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
+        done
+
     - name: Build Web Assets
       run: npm run build
 
@@ -38,13 +55,12 @@ jobs:
 
     - name: Patch Android Gradle for Java 17 compatibility
       run: |
-        echo "Patching Java version to 17 in all build.gradle files..."
+        echo "Patching Java version to 17 in all build.gradle files (android folder)..."
         find android -name "build.gradle" -type f | while read file; do
           echo "Patching $file"
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
           sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' "$file" || true
           sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
-          sed -i 's/compileOptions { sourceCompatibility JavaVersion.VERSION_21 targetCompatibility JavaVersion.VERSION_21 }/compileOptions { sourceCompatibility JavaVersion.VERSION_17 targetCompatibility JavaVersion.VERSION_17 }/g' "$file" || true
         done
         mkdir -p android
         printf '%s\n' \
@@ -55,6 +71,7 @@ jobs:
           > android/gradle.properties
         echo "Patched files (VERSION_17 lines):"
         grep -r "VERSION_17" android/ || true
+        grep -r "VERSION_17" node_modules/@capacitor 2>/dev/null || true
         echo "android/gradle.properties:"
         cat android/gradle.properties
 
