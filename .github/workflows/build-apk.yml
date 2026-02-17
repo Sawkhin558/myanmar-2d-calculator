@@ -37,6 +37,17 @@ jobs:
         npx cap add android || echo "Android already added"
         npx cap sync
 
+    - name: Patch Android Gradle for Java 17 compatibility
+      run: |
+        cd android/app
+        # Replace Java 21 with Java 17 if present
+        sed -i 's/sourceCompatibility JavaVersion.VERSION_21/sourceCompatibility JavaVersion.VERSION_17/g' build.gradle || true
+        sed -i 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' build.gradle || true
+        # Also handle numeric version: sourceCompatibility 21 -> 17
+        sed -i 's/sourceCompatibility [0-9]*/sourceCompatibility 17/g' build.gradle || true
+        sed -i 's/targetCompatibility [0-9]*/targetCompatibility 17/g' build.gradle || true
+        cd ../..
+
     - name: Build Debug APK
       run: |
         cd android
