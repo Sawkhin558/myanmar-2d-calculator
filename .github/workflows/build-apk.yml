@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allows manual trigger from GitHub UI
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -26,8 +26,7 @@ jobs:
         java-version: '17'
 
     - name: Install Capacitor Dependencies
-      run: |
-        npm install
+      run: npm install
 
     - name: Build Web Assets
       run: npm run build
@@ -40,8 +39,6 @@ jobs:
     - name: Patch Android Gradle for Java 17 compatibility
       run: |
         echo "Patching Java version to 17 in all build.gradle files..."
-
-        # 1) Patch all build.gradle files
         find android -name "build.gradle" -type f | while read file; do
           echo "Patching $file"
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
@@ -49,23 +46,17 @@ jobs:
           sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
           sed -i 's/compileOptions { sourceCompatibility JavaVersion.VERSION_21 targetCompatibility JavaVersion.VERSION_21 }/compileOptions { sourceCompatibility JavaVersion.VERSION_17 targetCompatibility JavaVersion.VERSION_17 }/g' "$file" || true
         done
-
-        # 2) Create gradle.properties inside android/ folder
-        cat > android/gradle.properties << 'EOF'
-org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
-android.useAndroidX=true
-android.enableJetifier=true
-EOF
-
-        # 3) Also set JVM args to force Java 17
-        echo "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" >> android/gradle.properties
-
-        # Show results
-        echo "=== Patched build.gradle files (showing VERSION_17 lines) ==="
-        grep -r "VERSION_17\|sourceCompatibility 17\|targetCompatibility 17" android/ || true
-        echo "=== gradle.properties ==="
+        mkdir -p android
+        printf '%s\n' \
+          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
+          "android.useAndroidX=true" \
+          "android.enableJetifier=true" \
+          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          > android/gradle.properties
+        echo "Patched files (VERSION_17 lines):"
+        grep -r "VERSION_17" android/ || true
+        echo "android/gradle.properties:"
         cat android/gradle.properties
-        echo "===================="
 
     - name: Build Debug APK
       run: |
@@ -79,7 +70,7 @@ EOF
         path: android/app/build/outputs/apk/debug/app-debug.apk
 
     - name: Build Release APK (Optional)
-      if: github.event_name == 'workflow_dispatch'  # Only on manual trigger
+      if: github.event_name == 'workflow_dispatch'
       run: |
         cd android
         ./gradlew assembleRelease
