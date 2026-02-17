@@ -46,9 +46,9 @@ jobs:
         # Patch Kotlin jvmTarget in build.gradle files (both single and double quotes)
         find . -name "build.gradle" -type f -exec sed -i "s/jvmTarget = ['\"]21['\"]/jvmTarget = '17'/g" {} \; 2>/dev/null || true
         find . -name "build.gradle" -type f -exec sed -i 's/jvmTarget = 21/jvmTarget = 17/g' {} \; 2>/dev/null || true
-        # Patch Kotlin jvmTarget in build.gradle.kts files (Kotlin DSL)
-        find . -name "*.gradle.kts" -type f -exec sed -i "s/jvmTarget\s*=\s*['\"]21['\"]/jvmTarget = 17/g" {} \; 2>/dev/null || true
-        find . -name "*.gradle.kts" -type f -exec sed -i 's/jvmTarget\s*=\s*21/jvmTarget = 17/g' {} \; 2>/dev/null || true
+        # Patch Kotlin jvmToolchain in build.gradle.kts files (Kotlin DSL) - this is the critical one for modern plugins!
+        find . -name "*.gradle.kts" -type f -exec sed -i 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \; 2>/dev/null || true
+        find . -name "*.gradle.kts" -type f -exec sed -i 's/jvmToolchain(22)/jvmToolchain(17)/g' {} \; 2>/dev/null || true
         # Patch capacitor.build.gradle files (app-specific)
         find . -name "capacitor.build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
         find . -name "capacitor.build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
