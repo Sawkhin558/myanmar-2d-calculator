@@ -43,16 +43,13 @@ jobs:
     - name: Patch Android Build for Java 17
       run: |
         echo "Patching Android project for Java 17..."
-        if [ -f "android/app/capacitor.build.gradle" ]; then
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/app/capacitor.build.gradle
-          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/app/capacitor.build.gradle
-          sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/app/capacitor.build.gradle
+        # Patch ALL .gradle files under android/ to ensure no Java 21 references remain
+        if [ -d "android" ]; then
+          find android -name "*.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \;
+          find android -name "*.gradle" -type f -exec sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' {} \;
+          find android -name "*.gradle" -type f -exec sed -i 's/targetCompatibility 21/targetCompatibility 17/g' {} \;
         fi
-        if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/capacitor-cordova-android-plugins/build.gradle
-          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
-          sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
-        fi
+        # Create gradle.properties to force Java 17
         printf '%s\n' \
           "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
           "android.useAndroidX=true" \
