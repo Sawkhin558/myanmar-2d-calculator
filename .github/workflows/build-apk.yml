@@ -38,34 +38,33 @@ jobs:
 
     - name: Patch All Gradle Build Files for Java 17
       run: |
-        echo "Patching ALL build.gradle files to Java 17..."
-        # 1) Patch node_modules (source of truth)
+        echo "Patching all build.gradle files to Java 17..."
+        # Patch node_modules (referenced directly by Android project)
         find node_modules -name "build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
         find node_modules -name "build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
         find node_modules -name "build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
-        # 2) Patch android/ folder (copied from node_modules)
+        # Patch android/ folder (generated modules)
         find android -name "build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
         find android -name "build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
         find android -name "build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
-        # 3) Create gradle.properties in android/
+        # Create gradle.properties in android/
         mkdir -p android
-        cat > android/gradle.properties << 'EOF'
-org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
-EOF
-        echo "Verification (VERSION_17 occurrences):"
-        grep -r "VERSION_17" node_modules/@capacitor 2>/dev/null | wc -l || true
-        grep -r "VERSION_17" android/ 2>/dev/null | wc -l || true
-        echo "gradle.properties:"
+        printf '%s\n' \
+          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
+          "android.useAndroidX=true" \
+          "android.enableJetifier=true" \
+          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          > android/gradle.properties
+        echo "=== Verification ==="
+        echo "sourceCompatibility/targetCompatibility lines in key files:"
+        grep -Hn "sourceCompatibility\|targetCompatibility" node_modules/@capacitor/android/capacitor/build.gradle android/capacitor-cordova-android-plugins/build.gradle 2>/dev/null || true
+        echo "=== android/gradle.properties ==="
         cat android/gradle.properties
 
     - name: Build Debug APK
       run: |
         cd android
-        echo "Using JAVA_HOME: $JAVA_HOME"
-        which java
+        echo "Java version:"
         java -version
         ./gradlew assembleDebug --no-daemon --stacktrace
 
@@ -79,7 +78,7 @@ EOF
       if: github.event_name == 'workflow_dispatch'
       run: |
         cd android
-        ./gradlew assembleRelease
+        ./gradlew assembleRelease --no-daemon --stacktrace
       env:
         ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
         ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
