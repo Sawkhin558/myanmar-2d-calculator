@@ -2,71 +2,72 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ master ]  # Only build for master branch to save minutes
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  # Cancel previous builds when new commit pushed
+  cancel-in-progress: true
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 15  # Strict timeout to prevent hung builds
+    timeout-minutes: 15
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 1  # Shallow clone for faster download
+        fetch-depth: 1
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-        cache: 'npm'  # Cache NPM dependencies
+        cache: 'npm'
 
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-        cache: 'gradle'  # Cache Gradle dependencies
+        cache: 'gradle'
 
-    - name: Clean and Install
-      run: |
-        rm -rf android node_modules www
-        npm install
+    - name: Install Capacitor Dependencies
+      run: npm install
 
     - name: Build Web Assets
       run: npm run build
 
-    - name: Sync with Android (fresh)
+    - name: Sync with Android
       run: |
-        npx cap add android
+        npx cap add android || echo "Android already added"
         npx cap sync
 
     - name: Patch Android Build for Java 17
       run: |
         echo "Patching Android project for Java 17..."
-        # Patch specific build.gradle files (fast, targeted)
-        if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/capacitor-cordova-android-plugins/build.gradle
-          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
-          sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
-        fi
+        # Patch capacitor.build.gradle
         if [ -f "android/app/capacitor.build.gradle" ]; then
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/app/capacitor.build.gradle
           sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/app/capacitor.build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/app/capacitor.build.gradle
         fi
+        # Patch capacitor-cordova-android-plugins
+        if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
+          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/capacitor-cordova-android-plugins/build.gradle
+          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
+          sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
+        fi
         # Create gradle.properties
-        mkdir -p android
-        printf '%s\n' \
-          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
-          "android.useAndroidX=true" \
-          "android.enableJetifier=true" \
-          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
-          > android/gradle.properties
+        cat > android/gradle.properties << 'EOF'
+org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+EOF
 
     - name: Build Debug APK
       run: |
