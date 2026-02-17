@@ -28,23 +28,6 @@ jobs:
     - name: Install Capacitor Dependencies
       run: npm install
 
-    - name: Patch Node Modules Capacitor for Java 17 (before cap sync)
-      run: |
-        # Patch capacitor-android build.gradle in node_modules
-        if [ -d "node_modules/@capacitor/android/capacitor" ]; then
-          echo "Patching node_modules/@capacitor/android/capacitor/build.gradle"
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
-          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
-          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' node_modules/@capacitor/android/capacitor/build.gradle || true
-        fi
-        # Also patch any other @capacitor packages if they have build.gradle
-        find node_modules/@capacitor -name "build.gradle" -type f | while read file; do
-          echo "Patching $file"
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
-          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' "$file" || true
-          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
-        done
-
     - name: Build Web Assets
       run: npm run build
 
@@ -53,26 +36,29 @@ jobs:
         npx cap add android || echo "Android already added"
         npx cap sync
 
-    - name: Patch Android Gradle for Java 17 compatibility
+    - name: Patch All Gradle Build Files for Java 17
       run: |
-        echo "Patching Java version to 17 in all build.gradle files (android folder)..."
-        find android -name "build.gradle" -type f | while read file; do
-          echo "Patching $file"
-          sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' "$file" || true
-          sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' "$file" || true
-          sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' "$file" || true
-        done
+        echo "Patching ALL build.gradle files to Java 17..."
+        # 1) Patch node_modules (source of truth)
+        find node_modules -name "build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
+        find node_modules -name "build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
+        find node_modules -name "build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
+        # 2) Patch android/ folder (copied from node_modules)
+        find android -name "build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
+        find android -name "build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
+        find android -name "build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
+        # 3) Create gradle.properties in android/
         mkdir -p android
-        printf '%s\n' \
-          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
-          "android.useAndroidX=true" \
-          "android.enableJetifier=true" \
-          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
-          > android/gradle.properties
-        echo "Patched files (VERSION_17 lines):"
-        grep -r "VERSION_17" android/ || true
-        grep -r "VERSION_17" node_modules/@capacitor 2>/dev/null || true
-        echo "android/gradle.properties:"
+        cat > android/gradle.properties << 'EOF'
+org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
+android.useAndroidX=true
+android.enableJetifier=true
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+EOF
+        echo "Verification (VERSION_17 occurrences):"
+        grep -r "VERSION_17" node_modules/@capacitor 2>/dev/null | wc -l || true
+        grep -r "VERSION_17" android/ 2>/dev/null | wc -l || true
+        echo "gradle.properties:"
         cat android/gradle.properties
 
     - name: Build Debug APK
