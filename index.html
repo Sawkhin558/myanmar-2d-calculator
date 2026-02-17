@@ -46,9 +46,7 @@
     .col-main { background-color: #ffffff; }
     .col-2d { background-color: #fce4ec; }
     .col-win { background-color: #e8f5e9; }
-    /* ပေါက်သီး (တွက်ချက်ရန်) */
     .col-extra { background-color: #e3f2fd; }
-    /* ပြန်အမ်း/အမ်းပေါက် (ပေါင်းပြရုံ) */
     .total-row { background-color: #1b5e20; color: white; font-weight: bold; }
     .com-row { background-color: #ffff00; font-weight: bold; }
     .result-row { background-color: #c8e6c9; font-weight: bold; }
@@ -192,9 +190,12 @@
         if (input.classList.contains('in-rwin')) trw += Number(input.value) || 0;
       });
 
-      // Save to localStorage (web) and also to Capacitor Filesystem if available
-      localStorage.setItem('2d_data_save', JSON.stringify(saveData));
-      saveToFile(JSON.stringify(saveData, null, 2));
+      // Save to localStorage (works both in browser and WebView)
+      try {
+        localStorage.setItem('2d_data_save', JSON.stringify(saveData));
+      } catch (e) {
+        console.log('localStorage save error:', e);
+      }
 
       const com = Number(document.getElementById('com-percent').value) || 0;
       const mult = Number(document.getElementById('multiplier').value) || 0;
@@ -223,76 +224,27 @@
       }
     }
 
-    // Capacitor Filesystem save (Android native storage)
-    async function saveToFile(data) {
-      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-        try {
-          const dir = window.Capacitor.Plugins.Filesystem.Directory;
-          const path = 'myanmar-calc-data.json';
-          await window.Capacitor.Plugins.Filesystem.writeFile({
-            path: path,
-            data: data,
-            directory: dir.Documents,
-            encoding: window.Capacitor.Plugins.Filesystem.Encoding.UTF8
-          });
-          console.log('Data saved to Filesystem');
-        } catch (e) {
-          console.error('Filesystem save error:', e);
-        }
-      }
-    }
-
-    async function loadFromFile() {
-      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-        try {
-          const dir = window.Capacitor.Plugins.Filesystem.Directory;
-          const path = 'myanmar-calc-data.json';
-          const result = await window.Capacitor.Plugins.Filesystem.readFile({
-            path: path,
-            directory: dir.Documents,
-            encoding: window.Capacitor.Plugins.Filesystem.Encoding.UTF8
-          });
-          return result.data;
-        } catch (e) {
-          // File not found is OK, fallback to localStorage
-          console.log('No saved file in Filesystem, using localStorage');
-        }
-      }
-      return null;
-    }
-
     function loadData() {
-      // Try Filesystem first (Android), then localStorage
-      (async () => {
-        let saved = await loadFromFile();
-        if (!saved) {
-          saved = localStorage.getItem('2d_data_save');
-        }
+      try {
+        const saved = localStorage.getItem('2d_data_save');
         if (saved) {
-          try {
-            const data = JSON.parse(saved);
-            document.querySelectorAll('input').forEach(input => {
-              const id = input.getAttribute('data-id') || input.id;
-              if (data[id]) input.value = data[id];
-            });
-            calculate();
-          } catch (e) {
-            console.error('Load data error:', e);
-          }
+          const data = JSON.parse(saved);
+          document.querySelectorAll('input').forEach(input => {
+            const id = input.getAttribute('data-id') || input.id;
+            if (data[id]) input.value = data[id];
+          });
+          calculate();
         }
-      })();
+      } catch (e) {
+        console.log('Load error:', e);
+      }
     }
 
     function clearData() {
       if(confirm("စာရင်းတွေအကုန်ဖျက်မှာ သေချာပါသလား?")) {
-        localStorage.clear();
-        // Also delete from Filesystem if exists
-        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-          window.Capacitor.Plugins.Filesystem.deleteFile({
-            path: 'myanmar-calc-data.json',
-            directory: window.Capacitor.Plugins.Filesystem.Directory.Documents
-          }).catch(() => {});
-        }
+        try {
+          localStorage.clear();
+        } catch (e) {}
         location.reload();
       }
     }
@@ -306,71 +258,48 @@
         const canvas = await html2canvas(target, { scale: 2, useCORS: true });
         summary.style.display = 'block';
 
-        // Convert canvas to blob
         canvas.toBlob(async (blob) => {
           if (!blob) {
             showToast('ပုံထုတ်ရန် အခက်အခဲ');
             return;
           }
 
-          // Try Capacitor Share plugin first (best for Android)
-          if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share) {
-            try {
-              const base64 = await toBase64(blob);
-              await window.Capacitor.Plugins.Share.share({
-                title: 'Myanmar 2D Calculator Record',
-                text: 'Record from Myanmar 2D Calculator',
-                url: `data:image/png;base64,${base64}`,
-                dialogTitle: 'ပုံသိမ်းရန်'
-              });
-              showToast('စာရင်းပုံSharesucceeded');
-              return;
-            } catch (e) {
-              console.log('Share failed, trying Filesystem save');
-            }
+          // Try to save using the modern Save File API (works in Chrome WebView)
+          try {
+            const fileHandle = await window.showSaveFilePicker({
+              suggestedName: `Record_${new Date().getTime()}.png`,
+              types: [{
+                description: 'PNG Image',
+                accept: {'image/png': ['.png']},
+              }],
+            });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            showToast('ပုံ သိမ်းဆည်းပြီး');
+            return;
+          } catch (e) {
+            // Save File API not supported or user cancelled, fallback to download anchor
+            console.log('showSaveFilePicker failed, using fallback:', e);
           }
 
-          // Fallback: try to save to Filesystem and notify
-          if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem) {
-            try {
-              const base64 = await toBase64(blob);
-              const filename = `Record_${new Date().getTime()}.png`;
-              await window.Capacitor.Plugins.Filesystem.writeFile({
-                path: filename,
-                data: base64,
-                directory: window.Capacitor.Plugins.Filesystem.Directory.External,
-                encoding: window.Capacitor.Plugins.Filesystem.Encoding.UTF8
-              });
-              showToast('ပုံ သိမ်းဆည်းပြီး (' + filename + ')');
-            } catch (e) {
-              console.error('Filesystem save error:', e);
-              showToast('သိမ်းဆည်းမရသောဖြစ်');
-            }
-          } else {
-            // Browser fallback: anchor download
-            const link = document.createElement('a');
-            link.download = `Record_${new Date().getTime()}.png`;
-            link.href = canvas.toDataURL('image/png');
-            link.click();
-            showToast('ပုံ သိမ်းပြီးပါပြီ');
-          }
+          // Fallback: create download link
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Record_${new Date().getTime()}.png`;
+          document.body.appendChild(a);
+          a.click();
+          setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }, 100);
+          showToast('ပုံ သိမ်းပြီးပါပြီ');
         }, 'image/png');
       } catch (e) {
         console.error('Screenshot error:', e);
         showToast('ပုဒ်မို့ရပါသော်သုံးရပ်မရသွ...');
       }
-    }
-
-    function toBase64(blob) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result.split(',')[1];
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
     }
 
     window.onload = loadData;
