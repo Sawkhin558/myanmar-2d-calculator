@@ -29,6 +29,9 @@ jobs:
       run: |
         npm install
 
+    - name: Build Web Assets
+      run: npm run build
+
     - name: Sync with Android
       run: |
         npx cap add android || echo "Android already added"

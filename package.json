@@ -4,9 +4,9 @@
   "description": "Myanmar 2D Lottery Calculator with commission and payout tracking",
   "main": "index.html",
   "scripts": {
-    "build": "echo 'No build step needed - pure HTML/JS'",
+    "build": "mkdir -p www && cp index.html manifest.json www/ && cp -r assets www/ 2>/dev/null || true",
     "android": "npx cap open android",
-    "sync": "npx cap sync"
+    "sync": "npm run build && npx cap sync"
   },
   "dependencies": {
     "@capacitor/core": "^7.0.0",
