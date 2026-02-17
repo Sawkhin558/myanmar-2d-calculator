@@ -25,15 +25,17 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Install Capacitor Dependencies
-      run: npm install
+    - name: Clean and Install
+      run: |
+        rm -rf android node_modules www
+        npm install
 
     - name: Build Web Assets
       run: npm run build
 
-    - name: Sync with Android
+    - name: Sync with Android (fresh)
       run: |
-        npx cap add android || echo "Android already added"
+        npx cap add android
         npx cap sync
 
     - name: Patch Android Build for Java 17
@@ -58,8 +60,8 @@ jobs:
           "android.enableJetifier=true" \
           "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
           > android/gradle.properties
-        echo "Patched. Verification:"
-        grep -l "VERSION_17" android/capacitor-cordova-android-plugins/build.gradle android/app/capacitor.build.gradle 2>/dev/null || echo "All patches applied"
+        echo "Patched files:"
+        ls -la android/capacitor-cordova-android-plugins/build.gradle android/app/capacitor.build.gradle 2>/dev/null
 
     - name: Build Debug APK
       run: |
