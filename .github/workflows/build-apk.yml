@@ -54,12 +54,12 @@ jobs:
           sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
         fi
-        cat > android/gradle.properties << 'EOF'
-org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
-EOF
+        printf '%s\n' \
+          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
+          "android.useAndroidX=true" \
+          "android.enableJetifier=true" \
+          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          > android/gradle.properties
 
     - name: Build Debug APK
       run: |
