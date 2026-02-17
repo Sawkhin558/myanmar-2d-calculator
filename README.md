@@ -131,3 +131,4 @@ If you don't have image conversion tools, use an online converter:
 Check: `android/app/build/outputs/apk/` for your APK.
 
 Happy calculating! 🧮
+// trigger
