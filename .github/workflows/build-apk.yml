@@ -57,6 +57,8 @@ jobs:
           "android.useAndroidX=true" \
           "android.enableJetifier=true" \
           "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          "kotlin.compiler.jvmTarget=17" \
+          "kotlin.compiler.jdk=17" \
           > android/gradle.properties
         echo "=== Verification (showing patched files with jvmTarget or VERSION_17) ==="
         grep -r "jvmTarget" node_modules/@capacitor android/ 2>/dev/null | grep -v "VERSION_17" | head -5 || true
