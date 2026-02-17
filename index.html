@@ -260,11 +260,11 @@
 
         canvas.toBlob(async (blob) => {
           if (!blob) {
-            showToast('ပုံထုတ်ရန် အခက်အခဲ');
+            showToast('ပုံထုတ်ရန位 အခကዡခဲ');
             return;
           }
 
-          // Try to save using the modern Save File API (works in Chrome WebView)
+          // 1. Try modern Save File Picker API (preferred)
           try {
             const fileHandle = await window.showSaveFilePicker({
               suggestedName: `Record_${new Date().getTime()}.png`,
@@ -276,29 +276,57 @@
             const writable = await fileHandle.createWritable();
             await writable.write(blob);
             await writable.close();
-            showToast('ပုံ သိမ်းဆည်းပြီး');
+            showToast('ပုံ သိမ်းဆည်းပြီးပါပြီ');
             return;
           } catch (e) {
-            // Save File API not supported or user cancelled, fallback to download anchor
-            console.log('showSaveFilePicker failed, using fallback:', e);
+            console.log('showSaveFilePicker failed:', e);
+            if (e.name === 'AbortError') {
+              showToast('သိမ်းဆည်းမှု�lt;တည်းညှိးပါပြီ');
+              return;
+            }
           }
 
-          // Fallback: create download link
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `Record_${new Date().getTime()}.png`;
-          document.body.appendChild(a);
-          a.click();
-          setTimeout(() => {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }, 100);
-          showToast('ပုံ သိမ်းပြီးပါပြီ');
+          // 2. Try Web Share API with files (good for saving to gallery via share sheet)
+          if (navigator.share && window.File && window.Blob) {
+            try {
+              const file = new File([blob], `Record_${new Date().getTime()}.png`, { type: 'image/png' });
+              await navigator.share({
+                files: [file],
+                title: 'Myanmar 2D Calculator Record',
+              });
+              showToast('သို့နှိုင်းရောက်ပြီးပါပြီ (သိမ်းဆည်းမှု)');
+              return;
+            } catch (e) {
+              console.log('navigator.share failed:', e);
+              if (e.name === 'AbortError') {
+                showToast('သို့�ှိုင်းရောက်ရပ်တည်းညှိပါပြီ');
+                return;
+              }
+            }
+          }
+
+          // 3. Fallback: download anchor
+          try {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Record_${new Date().getTime()}.png`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }, 200);
+            showToast('ပုံ သိမ်းပြီးပါပြီ (download)');
+            return;
+          } catch (e) {
+            console.error('Fallback download failed:', e);
+            showToast('ပုံ သိမ်းဆည်းမှု မအောင်မြင်ပါ စက်ထောက်ကိုင်မှုကို ကြိုးစားဖို့');
+          }
         }, 'image/png');
       } catch (e) {
         console.error('Screenshot error:', e);
-        showToast('ပုဒ်မို့ရပါသော်သုံးရပ်မရသွ...');
+        showToast('ပုံထုတ်ရန် အခက်အခဲ: ' + e.message);
       }
     }
 
