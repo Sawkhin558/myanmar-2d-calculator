@@ -39,10 +39,10 @@ jobs:
     - name: Patch Android Build for Java 17
       run: |
         echo "Patching Android project for Java 17..."
-        # Patch specific build.gradle files (targeted, fast)
+        # Patch specific build.gradle files (fast, targeted)
         if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/capacitor-cordova-android-plugins/build.gradle
-          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-and-plugins/build.gradle
+          sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
         fi
         if [ -f "android/app/capacitor.build.gradle" ]; then
@@ -50,15 +50,16 @@ jobs:
           sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/app/capacitor.build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/app/capacitor.build.gradle
         fi
-        # Ensure gradle.properties exists with correct settings
-        cat > android/gradle.properties << 'EOF'
-org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
-android.useAndroidX=true
-android.enableJetifier=true
-org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
-EOF
-        echo "Patched files:"
-        grep -l "VERSION_17" android/capacitor-cordova-android-plugins/build.gradle android/app/capacitor.build.gradle 2>/dev/null || echo "No patches needed"
+        # Create gradle.properties
+        mkdir -p android
+        printf '%s\n' \
+          "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
+          "android.useAndroidX=true" \
+          "android.enableJetifier=true" \
+          "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          > android/gradle.properties
+        echo "Patched. Verification:"
+        grep -l "VERSION_17" android/capacitor-cordova-android-plugins/build.gradle android/app/capacitor.build.gradle 2>/dev/null || echo "All patches applied"
 
     - name: Build Debug APK
       run: |
