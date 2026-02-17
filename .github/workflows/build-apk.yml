@@ -7,14 +7,9 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
 
     steps:
     - name: Checkout Code
@@ -49,19 +44,16 @@ jobs:
     - name: Patch Android Build for Java 17
       run: |
         echo "Patching Android project for Java 17..."
-        # Patch capacitor.build.gradle
         if [ -f "android/app/capacitor.build.gradle" ]; then
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/app/capacitor.build.gradle
           sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/app/capacitor.build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/app/capacitor.build.gradle
         fi
-        # Patch capacitor-cordova-android-plugins
         if [ -f "android/capacitor-cordova-android-plugins/build.gradle" ]; then
           sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' android/capacitor-cordova-android-plugins/build.gradle
           sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
           sed -i 's/targetCompatibility 21/targetCompatibility 17/g' android/capacitor-cordova-android-plugins/build.gradle
         fi
-        # Create gradle.properties
         cat > android/gradle.properties << 'EOF'
 org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64
 android.useAndroidX=true
@@ -80,21 +72,3 @@ EOF
       with:
         name: myanmar-2d-calculator-debug
         path: android/app/build/outputs/apk/debug/app-debug.apk
-
-    - name: Build Release APK (Optional)
-      if: github.event_name == 'workflow_dispatch'
-      run: |
-        cd android
-        ./gradlew assembleRelease --no-daemon --stacktrace
-      env:
-        ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
-        ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-        ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-
-    - name: Upload Release APK Artifact
-      if: github.event_name == 'workflow_dispatch'
-      uses: actions/upload-artifact@v4
-      with:
-        name: myanmar-2d-calculator-release
-        path: android/app/build/outputs/apk/release/app-release-unsigned.apk
