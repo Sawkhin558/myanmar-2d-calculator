@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Capacitor
+android/
+ios/
+capacitor.config.json.tmp
+
+# Build outputs
+*.apk
+*.apks
+*.aab
+*.keystore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Capacitor generated
+www/
+dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Misc
+icon-192.png
+icon-512.png

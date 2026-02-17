@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Myanmar 2D Calculator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1b5e20">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 10px;
+      background-color: #f4f4f4;
+    }
+    .container {
+      max-width: 950px;
+      margin: auto;
+      background: white;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    th, td {
+      border: 1px solid #c18b5c;
+      padding: 8px;
+      text-align: center;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f8e8d8;
+    }
+    input {
+      width: 95%;
+      border: none;
+      text-align: center;
+      font-size: 15px;
+      outline: none;
+      background: transparent;
+    }
+    /* Column Colors */
+    .col-main { background-color: #ffffff; }
+    .col-2d { background-color: #fce4ec; }
+    .col-win { background-color: #e8f5e9; }
+    /* ပေါက်သီး (တွက်ချက်ရန်) */
+    .col-extra { background-color: #e3f2fd; }
+    /* ပြန်အမ်း/အမ်းပေါက် (ပေါင်းပြရုံ) */
+    .total-row { background-color: #1b5e20; color: white; font-weight: bold; }
+    .com-row { background-color: #ffff00; font-weight: bold; }
+    .result-row { background-color: #c8e6c9; font-weight: bold; }
+    .summary-box {
+      border: 2px solid #1b5e20;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 5px;
+      background: #fff;
+    }
+    .btn-group {
+      margin: 15px 0;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      padding: 12px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      font-weight: bold;
+    }
+    .btn-del { background: #d32f2f; }
+    .btn-img { background: #e65100; }
+    .btn-full { background: #1b5e20; }
+    .loss { color: red; }
+    .profit { color: blue; }
+  </style>
+</head>
+<body>
+  <div class="container" id="capture-area">
+    <h3 style="text-align: center; margin-bottom: 10px;">နေ့စဉ်စာရင်းမှတ်တမ်း</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 70px;">Day</th>
+          <th>အရောင်း</th>
+          <th class="col-2d">2D</th>
+          <th class="col-win">ပေါက်သီး</th>
+          <th class="col-extra">ပြန်အမ်း</th>
+          <th class="col-extra">အမ်းပေါက်</th>
+        </tr>
+      </thead>
+      <tbody id="table-body">
+      </tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td>Total</td>
+          <td id="total-sales">0</td>
+          <td>-</td>
+          <td id="total-win">0</td>
+          <td id="total-refund">0</td>
+          <td id="total-refund-win">0</td>
+        </tr>
+        <tr class="com-row">
+          <td>ကော် %</td>
+          <td><input type="number" id="com-percent" value="16" oninput="calculate()"></td>
+          <td>အဆ x</td>
+          <td><input type="number" id="multiplier" value="80" oninput="calculate()"></td>
+          <td colspan="2">သီးသန့်ပေါင်းပြရုံ</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="summary-box" id="summary-section">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+        <span>ကော်နုတ်ပြီးအသားတင်: <b id="net-sales">0</b></span>
+        <span>လျော်ကြေးစုစုပေါင်း: <b id="final-payout">0</b></span>
+      </div>
+      <div style="text-align: center; font-size: 20px; border-top: 1px solid #ccc; padding-top: 10px;">
+        အရှုံး/အမြတ်: <span id="final-result">0</span> (<span id="status-text">-</span>)
+      </div>
+    </div>
+  </div>
+  <div class="btn-group">
+    <button class="btn-del" onclick="clearData()">စာရင်းဖျက်မည်</button>
+    <button class="btn-img" onclick="takeScreenshot('table')">ဇယားတင်ပုံသိမ်းမည်</button>
+    <button class="btn-full" onclick="takeScreenshot('full')">စာရင်းအပြည့်ပုံသိမ်းမည်</button>
+  </div>
+  <script>
+    const tbody = document.getElementById('table-body');
+    for (let i = 1; i <= 5; i++) {
+      ['am', 'pm'].forEach(time => {
+        const row = `<tr>
+          <td>(${i})${time}</td>
+          <td class="col-main"><input type="number" class="in-sales" data-id="s${i}${time}" oninput="calculate()"></td>
+          <td class="col-2d"><input type="number" data-id="t${i}${time}"></td>
+          <td class="col-win"><input type="number" class="in-win" data-id="w${i}${time}" oninput="calculate()"></td>
+          <td class="col-extra"><input type="number" class="in-refund" data-id="r${i}${time}" oninput="calculate()"></td>
+          <td class="col-extra"><input type="number" class="in-rwin" data-id="rw${i}${time}" oninput="calculate()"></td>
+        </tr>`;
+        tbody.innerHTML += row;
+      });
+    }
+
+    function calculate() {
+      let ts = 0, tw = 0, tr = 0, trw = 0;
+      const saveData = {};
+      document.querySelectorAll('input').forEach(input => {
+        const id = input.getAttribute('data-id') || input.id;
+        saveData[id] = input.value;
+        if (input.classList.contains('in-sales')) ts += Number(input.value) || 0;
+        if (input.classList.contains('in-win')) tw += Number(input.value) || 0;
+        if (input.classList.contains('in-refund')) tr += Number(input.value) || 0;
+        if (input.classList.contains('in-rwin')) trw += Number(input.value) || 0;
+      });
+      localStorage.setItem('2d_data_save', JSON.stringify(saveData));
+
+      const com = Number(document.getElementById('com-percent').value) || 0;
+      const mult = Number(document.getElementById('multiplier').value) || 0;
+      const netSales = ts - (ts * (com / 100));
+      const totalPayout = tw * mult;
+      const finalResult = netSales - totalPayout;
+
+      document.getElementById('total-sales').innerText = ts.toLocaleString();
+      document.getElementById('total-win').innerText = tw.toLocaleString();
+      document.getElementById('total-refund').innerText = tr.toLocaleString();
+      document.getElementById('total-refund-win').innerText = trw.toLocaleString();
+      document.getElementById('net-sales').innerText = netSales.toLocaleString();
+      document.getElementById('final-payout').innerText = totalPayout.toLocaleString();
+
+      const resEl = document.getElementById('final-result');
+      const stsEl = document.getElementById('status-text');
+      resEl.innerText = Math.abs(finalResult).toLocaleString();
+      if (finalResult >= 0) {
+        stsEl.innerText = "မြတ်သည်";
+        stsEl.className = "profit";
+        resEl.className = "profit";
+      } else {
+        stsEl.innerText = "ရှုံးသည်";
+        stsEl.className = "loss";
+        resEl.className = "loss";
+      }
+    }
+
+    function loadData() {
+      const saved = localStorage.getItem('2d_data_save');
+      if (saved) {
+        const data = JSON.parse(saved);
+        document.querySelectorAll('input').forEach(input => {
+          const id = input.getAttribute('data-id') || input.id;
+          if (data[id]) input.value = data[id];
+        });
+        calculate();
+      }
+    }
+
+    function clearData() {
+      if(confirm("စာရင်းတွေအကုန်ဖျက်မှာ သေချာပါသလား?")) {
+        localStorage.clear();
+        location.reload();
+      }
+    }
+
+    function takeScreenshot(mode) {
+      const target = document.getElementById('capture-area');
+      const summary = document.getElementById('summary-section');
+      if (mode === 'table') summary.style.display = 'none';
+      html2canvas(target, { scale: 2 }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = `Record_${new Date().getTime()}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        summary.style.display = 'block';
+      });
+    }
+
+    window.onload = loadData;
+  </script>
+</body>
+</html>
