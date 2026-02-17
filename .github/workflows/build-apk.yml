@@ -64,7 +64,10 @@ EOF
     - name: Build Debug APK
       run: |
         cd android
-        ./gradlew assembleDebug
+        echo "Using JAVA_HOME: $JAVA_HOME"
+        which java
+        java -version
+        ./gradlew assembleDebug --no-daemon --stacktrace
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
