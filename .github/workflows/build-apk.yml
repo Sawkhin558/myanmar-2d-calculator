@@ -2,28 +2,35 @@ name: Build Android APK
 
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+    branches: [ master ]  # Only build for master branch to save minutes
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # Cancel previous builds when new commit pushed
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    timeout-minutes: 15  # Strict timeout to prevent hung builds
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1  # Shallow clone for faster download
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '20'
+        cache: 'npm'  # Cache NPM dependencies
 
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
+        cache: 'gradle'  # Cache Gradle dependencies
 
     - name: Clean and Install
       run: |
@@ -60,8 +67,6 @@ jobs:
           "android.enableJetifier=true" \
           "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
           > android/gradle.properties
-        echo "Patched files:"
-        ls -la android/capacitor-cordova-android-plugins/build.gradle android/app/capacitor.build.gradle 2>/dev/null
 
     - name: Build Debug APK
       run: |
