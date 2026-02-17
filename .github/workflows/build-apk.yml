@@ -40,22 +40,38 @@ jobs:
         npx cap add android || echo "Android already added"
         npx cap sync
 
-    - name: Patch Android Build for Java 17
+    - name: Patch All Build Files for Java 17 (including Kotlin jvmTarget)
       run: |
-        echo "Patching Android project for Java 17..."
-        # Patch ALL .gradle files under android/ to ensure no Java 21 references remain
-        if [ -d "android" ]; then
-          find android -name "*.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \;
-          find android -name "*.gradle" -type f -exec sed -i 's/sourceCompatibility 21/sourceCompatibility 17/g' {} \;
-          find android -name "*.gradle" -type f -exec sed -i 's/targetCompatibility 21/targetCompatibility 17/g' {} \;
-        fi
-        # Create gradle.properties to force Java 17
+        echo "Patching ALL gradle files to Java 17 and Kotlin jvmTarget 17..."
+        # Patch Java source/target compatibility
+        find . -name "build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
+        find . -name "build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
+        find . -name "build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
+        # Patch Kotlin jvmTarget in build.gradle files (both single and double quotes)
+        find . -name "build.gradle" -type f -exec sed -i "s/jvmTarget = ['\"]21['\"]/jvmTarget = '17'/g" {} \; 2>/dev/null || true
+        find . -name "build.gradle" -type f -exec sed -i 's/jvmTarget = 21/jvmTarget = 17/g' {} \; 2>/dev/null || true
+        # Patch Kotlin jvmToolchain in build.gradle.kts files (Kotlin DSL) - critical for modern plugins!
+        find . -name "*.gradle.kts" -type f -exec sed -i 's/jvmToolchain(21)/jvmToolchain(17)/g' {} \; 2>/dev/null || true
+        find . -name "*.gradle.kts" -type f -exec sed -i 's/jvmToolchain(22)/jvmToolchain(17)/g' {} \; 2>/dev/null || true
+        # Patch capacitor.build.gradle files (app-specific)
+        find . -name "capacitor.build.gradle" -type f -exec sed -i 's/JavaVersion\.VERSION_21/JavaVersion.VERSION_17/g' {} \; 2>/dev/null || true
+        find . -name "capacitor.build.gradle" -type f -exec sed -i 's/sourceCompatibility\s*21/sourceCompatibility 17/g' {} \; 2>/dev/null || true
+        find . -name "capacitor.build.gradle" -type f -exec sed -i 's/targetCompatibility\s*21/targetCompatibility 17/g' {} \; 2>/dev/null || true
+        find . -name "capacitor.build.gradle" -type f -exec sed -i "s/jvmTarget = ['\"]21['\"]/jvmTarget = '17'/g" {} \; 2>/dev/null || true
+        find . -name "capacitor.build.gradle" -type f -exec sed -i 's/jvmTarget = 21/jvmTarget = 17/g' {} \; 2>/dev/null || true
+        # Create gradle.properties in android/ and also set Kotlin compiler options
+        mkdir -p android
         printf '%s\n' \
           "org.gradle.java.home=/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/17.0.18-8/x64" \
           "android.useAndroidX=true" \
           "android.enableJetifier=true" \
           "org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8" \
+          "kotlin.compiler.jvmTarget=17" \
+          "kotlin.compiler.jdk=17" \
           > android/gradle.properties
+        echo "=== Verification (showing patched files with jvmTarget or VERSION_17) ==="
+        grep -r "jvmTarget" node_modules/@capacitor android/ 2>/dev/null | grep -v "VERSION_17" | head -5 || true
+        grep -r "VERSION_17" node_modules/@capacitor android/ 2>/dev/null | head -5 || true
 
     - name: Build Debug APK
       run: |
